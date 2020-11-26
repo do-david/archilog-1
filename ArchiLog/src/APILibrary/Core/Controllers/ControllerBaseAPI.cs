@@ -25,21 +25,24 @@ namespace APILibrary.Core.Controllers
         {
             this._context = context;
         }
-
+        //?asc=rating&desc=name
         //?fields=email,phone
-
-
-
         [ProducesResponseType((int)HttpStatusCode.OK)]
         [HttpGet]
-        public virtual async Task<ActionResult<IEnumerable<dynamic>>> GetAllAsync([FromQuery] string fields)
+        public virtual async Task<ActionResult<IEnumerable<dynamic>>> GetAllAsync([FromQuery] string fields, [FromQuery] string asc, [FromQuery] string desc)
         {
             var query = _context.Set<TModel>().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(asc))
+            {
+                var tab = asc.Split(',');
+                //faire un order(query,asc);
+                query =  query.OrderByAsc(tab);
+            }
 
             if (!string.IsNullOrWhiteSpace(fields))
             {
                 var tab = fields.Split(',');
-
                 // var results = await IQueryableExtensions.SelectDynamic<TModel>(query, tab).ToListAsync();
                 var results = await query.SelectDynamic(tab).ToListAsync();
 

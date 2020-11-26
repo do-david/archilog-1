@@ -2,7 +2,7 @@
 
 namespace WebApplication.Migrations
 {
-    public partial class AddCustomers : Migration
+    public partial class AddCustomersAndPizzas : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -24,12 +24,30 @@ namespace WebApplication.Migrations
                 {
                     table.PrimaryKey("PK_Customers", x => x.ID);
                 });
+
+            migrationBuilder.CreateTable(
+                name: "Pizzas",
+                columns: table => new
+                {
+                    ID = table.Column<int>(nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(nullable: true),
+                    Price = table.Column<decimal>(nullable: false),
+                    Topping = table.Column<string>(nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Pizzas", x => x.ID);
+                });
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
                 name: "Customers");
+
+            migrationBuilder.DropTable(
+                name: "Pizzas");
         }
     }
 }
