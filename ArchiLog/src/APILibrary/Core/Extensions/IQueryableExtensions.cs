@@ -36,11 +36,11 @@ namespace APILibrary.Core.Extensions
             return expo;
         }
         //OrderByTAsc(IQuerible<TModel>, string[] asc)
-        public static IQueryable<TModel> OrderByAsc<TModel>(this IQueryable<TModel> query, string[] asc) where TModel : ModelBase
+        public static IQueryable<TModel> OrderByAscOrDesc<TModel>(this IQueryable<TModel> query, string asc, string desc) where TModel : ModelBase
         {
-            foreach (var propName in asc)
-            {
-                var propInfo = typeof(TModel).GetProperty(propName,BindingFlags.Public |
+            if (string.IsNullOrWhiteSpace(desc)) 
+            { 
+                var propInfo = typeof(TModel).GetProperty(asc, BindingFlags.Public |
                     BindingFlags.IgnoreCase | BindingFlags.Instance);
                 if (propInfo is null)
                     throw new InvalidOperationException("Please provide a valid property name");
@@ -48,6 +48,33 @@ namespace APILibrary.Core.Extensions
                 {
                     var keySelector = GetExpression<TModel>(propInfo.Name);
                     query = query.OrderBy(keySelector);
+                }
+            }
+            else if (string.IsNullOrWhiteSpace(asc))
+            {
+                var propInfo = typeof(TModel).GetProperty(desc, BindingFlags.Public |
+                   BindingFlags.IgnoreCase | BindingFlags.Instance);
+                if (propInfo is null)
+                    throw new InvalidOperationException("Please provide a valid property name");
+                else
+                {
+                    var keySelector = GetExpression<TModel>(propInfo.Name);
+                    query = query.OrderByDescending(keySelector);
+                }
+            }
+            else
+            {
+                var propInfoAsc = typeof(TModel).GetProperty(asc, BindingFlags.Public |
+                  BindingFlags.IgnoreCase | BindingFlags.Instance);
+                var propInfoDesc = typeof(TModel).GetProperty(desc, BindingFlags.Public |
+                  BindingFlags.IgnoreCase | BindingFlags.Instance);
+                if (propInfoAsc is null || propInfoDesc is null)
+                    throw new InvalidOperationException("Please provide a valid property name");
+                else
+                {
+                    var keySelector1 = GetExpression<TModel>(propInfoAsc.Name);
+                    var keySelector2 = GetExpression<TModel>(propInfoDesc.Name);
+                    query = query.OrderBy(keySelector1).ThenByDescending(keySelector2);
                 }
             }
             return query;

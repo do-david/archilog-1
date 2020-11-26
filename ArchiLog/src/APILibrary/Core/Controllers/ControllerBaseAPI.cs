@@ -33,13 +33,10 @@ namespace APILibrary.Core.Controllers
         {
             var query = _context.Set<TModel>().AsQueryable();
 
-            if (!string.IsNullOrWhiteSpace(asc))
+            if (!string.IsNullOrWhiteSpace(asc) || !string.IsNullOrWhiteSpace(desc))
             {
-                var tab = asc.Split(',');
-                //faire un order(query,asc);
-                query =  query.OrderByAsc(tab);
+                query =  query.OrderByAscOrDesc(asc,desc);
             }
-
             if (!string.IsNullOrWhiteSpace(fields))
             {
                 var tab = fields.Split(',');
