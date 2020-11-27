@@ -2,16 +2,31 @@
 using APILibrary.Core.Models;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Text;
+using System.Globalization;
 
 namespace APILibrary.Core.Extensions
 {
     public static class IQueryableExtensions
     {
+        public enum OperationExpression
+        {
+            Equals,
+            NotEquals,
+            Minor,
+            MinorEquals,
+            Mayor,
+            MayorEquals,
+            Like,
+            Contains,
+            Any
+        }
         public static object SelectObject(object value, string[] fields)
         {
             var expo = new ExpandoObject() as IDictionary<string, object>;
@@ -35,7 +50,53 @@ namespace APILibrary.Core.Extensions
             }
             return expo;
         }
-        //OrderByTAsc(IQuerible<TModel>, string[] asc)
+        //FilterCustomized(IQuerible<TModel>, string type)
+        public static IQueryable<TModel> FilterCustomized<TModel>(this IQueryable<TModel> query,string[] fieldNames,string type, string rating, string date) where TModel : ModelBase
+        {
+            NumberFormatInfo nfi = NumberFormatInfo.CurrentInfo;
+            Regex r = new Regex(@"\[\b\d\,\d\b\]");
+            foreach (var fielName in fieldNames)
+            {
+                if(fielName == "Type" && !string.IsNullOrWhiteSpace(type))
+                {
+                    var propInfo = typeof(TModel).GetProperty("Type", BindingFlags.Public |
+                   BindingFlags.IgnoreCase | BindingFlags.Instance);
+                    var fieldName = propInfo.Name;
+                    var predicate = GetCriteriaWhere<TModel>(fieldName, OperationExpression.Equals, type);
+                    query = query.Where(predicate);
+                }
+                if (fielName == "Rating" &&!string.IsNullOrWhiteSpace(rating))
+                {
+                    var propInfo = typeof(TModel).GetProperty("Rating", BindingFlags.Public |
+                        BindingFlags.IgnoreCase | BindingFlags.Instance);
+                    var fieldName = propInfo.Name;
+                    if (r.IsMatch(rating))
+                    {
+                        var start = rating[1].ToString();
+                        var end = rating[rating.Length - 2].ToString();
+                        var predicateStart = GetCriteriaWhere<TModel>(fieldName, OperationExpression.MayorEquals,Convert.ToDecimal(start));
+                        var predicateEnd = GetCriteriaWhere<TModel>(fieldName, OperationExpression.MinorEquals, Convert.ToDecimal(end));
+                        query = query.Where(predicateStart).Where(predicateEnd);
+                    }
+                    else
+                    {
+                        var predicate = GetCriteriaWhere<TModel>(fieldName, OperationExpression.Equals, Convert.ToDecimal(rating));
+                        query = query.Where(predicate);
+                    }
+                    
+                }
+                if (fielName == "Date" && !string.IsNullOrWhiteSpace(date))
+                {
+                    var propInfo = typeof(TModel).GetProperty("CreateAt", BindingFlags.Public |
+                   BindingFlags.IgnoreCase | BindingFlags.Instance);
+                    var fieldName = propInfo.Name;
+                    var predicate = GetCriteriaWhere<TModel>(fieldName, OperationExpression.Equals, Convert.ToDateTime(date));
+                    query = query.Where(predicate);
+                }
+            }
+            return query;
+        }
+        //OrderByTAsc(IQuerible<TModel>, string asc, string desc)
         public static IQueryable<TModel> OrderByAscOrDesc<TModel>(this IQueryable<TModel> query, string asc, string desc) where TModel : ModelBase
         {
             if (string.IsNullOrWhiteSpace(desc)) 
@@ -79,12 +140,85 @@ namespace APILibrary.Core.Extensions
             }
             return query;
         }
+        public static Expression<Func<TModel,bool>> GetCriteriaWhere<TModel>(string fieldName, OperationExpression selectedOperator, object fieldValue) where TModel:ModelBase
+        {
+
+            var propInfo = typeof(TModel).GetProperty(fieldName, BindingFlags.Public | BindingFlags.IgnoreCase | BindingFlags.Instance);
+
+            var parameter = Expression.Parameter(typeof(TModel), "x");
+            var expressionParameter = GetMemberExpression<TModel>(parameter, fieldName);
+            if (propInfo != null && fieldValue != null)
+            {
+
+                BinaryExpression body = null;
+
+                switch (selectedOperator)
+                {
+                    case OperationExpression.Equals:
+                        body = Expression.Equal(expressionParameter, Expression.Constant(fieldValue, propInfo.PropertyType));
+                        return Expression.Lambda<Func<TModel, bool>>(body, parameter);
+                    case OperationExpression.NotEquals:
+                        body = Expression.NotEqual(expressionParameter, Expression.Constant(fieldValue, propInfo.PropertyType));
+                        return Expression.Lambda<Func<TModel, bool>>(body, parameter);
+                    case OperationExpression.Minor:
+                        body = Expression.LessThan(expressionParameter, Expression.Constant(fieldValue, propInfo.PropertyType));
+                        return Expression.Lambda<Func<TModel, bool>>(body, parameter);
+                    case OperationExpression.MinorEquals:
+                        body = Expression.LessThanOrEqual(expressionParameter, Expression.Constant(fieldValue, propInfo.PropertyType));
+                        return Expression.Lambda<Func<TModel, bool>>(body, parameter);
+                    case OperationExpression.Mayor:
+                        body = Expression.GreaterThan(expressionParameter, Expression.Constant(fieldValue, propInfo.PropertyType));
+                        return Expression.Lambda<Func<TModel, bool>>(body, parameter);
+                    case OperationExpression.MayorEquals:
+                        body = Expression.GreaterThanOrEqual(expressionParameter, Expression.Constant(fieldValue, propInfo.PropertyType));
+                        return Expression.Lambda<Func<TModel, bool>>(body, parameter);
+                    case OperationExpression.Like:
+                        MethodInfo contains = typeof(string).GetMethod("Contains");
+                        var bodyLike = Expression.Call(expressionParameter, contains, Expression.Constant(fieldValue, propInfo.PropertyType));
+                        return Expression.Lambda<Func<TModel, bool>>(bodyLike, parameter);
+                    case OperationExpression.Contains:
+                        return Contains<TModel>(fieldValue, parameter, expressionParameter);
+
+
+                    default:
+                        throw new Exception("Not implement Operation");
+                }
+            }
+            else
+            {
+                Expression<Func<TModel, bool>> filter = x => true;
+                return filter;
+            }
+        }
+
+        private static MemberExpression GetMemberExpression<TModel>(ParameterExpression parameter, string propName) where TModel : ModelBase
+        {
+            if (string.IsNullOrEmpty(propName)) return null;
+            else
+            {
+                return Expression.Property(parameter, propName);
+            }
+            /*var propertiesName = propName.Split('.');
+            if (propertiesName.Count() == 2)
+                return Expression.Property(Expression.Property(parameter, propertiesName[0]), propertiesName[1]);*/
+        }
         public static Expression<Func<TModel, object>> GetExpression<TModel>(string propertyName)
         {
             var param = Expression.Parameter(typeof(TModel), "x");
             Expression conversion = Expression.Convert(Expression.Property
             (param, propertyName), typeof(object));   //important to use the Expression.Convert
             return Expression.Lambda<Func<TModel, object>>(conversion, param);
+        }
+        private static Expression<Func<TModel, bool>> Contains<TModel>(object fieldValue, ParameterExpression parameterExpression, MemberExpression memberExpression) where TModel:ModelBase
+        {
+            var list = fieldValue as List<long>;
+
+            if (list == null || list.Count == 0) return x => true;
+
+            MethodInfo containsInList = typeof(List<long>).GetMethod("Contains", new Type[] { typeof(long) });
+            var bodyContains = Expression.Call(Expression.Constant(fieldValue), containsInList, memberExpression);
+
+            return Expression.Lambda<Func<TModel, bool>>(bodyContains, parameterExpression);
         }
         public static IQueryable<dynamic> SelectDynamic<TModel>(this IQueryable<TModel> query, string[] fields) where TModel : ModelBase
         {

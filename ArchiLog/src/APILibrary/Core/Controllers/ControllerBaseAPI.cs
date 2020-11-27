@@ -29,13 +29,18 @@ namespace APILibrary.Core.Controllers
         //?fields=email,phone
         [ProducesResponseType((int)HttpStatusCode.OK)]
         [HttpGet]
-        public virtual async Task<ActionResult<IEnumerable<dynamic>>> GetAllAsync([FromQuery] string fields, [FromQuery] string asc, [FromQuery] string desc)
+        public virtual async Task<ActionResult<IEnumerable<dynamic>>> GetAllAsync([FromQuery] string fields, [FromQuery] string asc, [FromQuery] string desc,[FromQuery] string type, [FromQuery] string rating, [FromQuery] string date)
         {
             var query = _context.Set<TModel>().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(asc) || !string.IsNullOrWhiteSpace(desc))
             {
                 query =  query.OrderByAscOrDesc(asc,desc);
+            }
+            if (!string.IsNullOrWhiteSpace(type) || !string.IsNullOrWhiteSpace(rating) || !string.IsNullOrWhiteSpace(date))
+            {
+                string[] fieldNames = {"Type", "Rating", "Date"};
+                query = query.FilterCustomized(fieldNames, type, rating, date);
             }
             if (!string.IsNullOrWhiteSpace(fields))
             {

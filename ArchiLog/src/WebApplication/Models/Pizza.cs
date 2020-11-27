@@ -15,5 +15,9 @@ namespace WebApplication.Models
         public string Name { get; set; }
         public decimal Price { get; set; }
         public string Topping { get; set; }
+        public DateTime CreateAt { get; set; }
+        public DateTime EndAt { get; set; }
+        public string Type { get; set; }
+        public decimal Rating { get; set; }
     }
 }
