@@ -53,8 +53,12 @@ namespace APILibrary.Core.Extensions
         //FilterCustomized(IQuerible<TModel>, string type)
         public static IQueryable<TModel> FilterCustomized<TModel>(this IQueryable<TModel> query,string[] fieldNames,string type, string rating, string date) where TModel : ModelBase
         {
-            NumberFormatInfo nfi = NumberFormatInfo.CurrentInfo;
             Regex r = new Regex(@"\[\b\d\,\d\b\]");
+            Regex rs = new Regex(@"\[\b\d\,\]");
+            Regex re = new Regex(@"\[\,\d\b\]");
+            Regex d = new Regex(@"\[\b\d{0,4}\-\d{0,2}\-\d{0,2}\,\d{0,4}\-\d{0,2}\-\d{0,2}\b\]");
+            Regex ds = new Regex(@"\[\b\d{0,4}\-\d{0,2}\-\d{0,2}\b\,\]");
+            Regex de = new Regex(@"\[\,\b\d{0,4}\-\d{0,2}\-\d{0,2}\b\]");
             foreach (var fielName in fieldNames)
             {
                 if(fielName == "Type" && !string.IsNullOrWhiteSpace(type))
@@ -78,6 +82,18 @@ namespace APILibrary.Core.Extensions
                         var predicateEnd = GetCriteriaWhere<TModel>(fieldName, OperationExpression.MinorEquals, Convert.ToDecimal(end));
                         query = query.Where(predicateStart).Where(predicateEnd);
                     }
+                    else if (rs.IsMatch(rating))
+                    {
+                        var start = rating[1].ToString();
+                        var predicateStart = GetCriteriaWhere<TModel>(fieldName, OperationExpression.MayorEquals, Convert.ToDecimal(start));
+                        query = query.Where(predicateStart);
+                    }
+                    else if (re.IsMatch(rating))
+                    {
+                        var end = rating[rating.Length - 2].ToString();
+                        var predicateEnd = GetCriteriaWhere<TModel>(fieldName, OperationExpression.MinorEquals, Convert.ToDecimal(end));
+                        query = query.Where(predicateEnd);
+                    }
                     else
                     {
                         var predicate = GetCriteriaWhere<TModel>(fieldName, OperationExpression.Equals, Convert.ToDecimal(rating));
@@ -90,8 +106,31 @@ namespace APILibrary.Core.Extensions
                     var propInfo = typeof(TModel).GetProperty("CreateAt", BindingFlags.Public |
                    BindingFlags.IgnoreCase | BindingFlags.Instance);
                     var fieldName = propInfo.Name;
-                    var predicate = GetCriteriaWhere<TModel>(fieldName, OperationExpression.Equals, Convert.ToDateTime(date));
-                    query = query.Where(predicate);
+                    if (d.IsMatch(date))
+                    {
+                        var start = date.Substring(1, 10);
+                        var end = date.Substring(12,10);
+                        var predicateStart = GetCriteriaWhere<TModel>(fieldName, OperationExpression.MayorEquals, Convert.ToDateTime(start));
+                        var predicateEnd = GetCriteriaWhere<TModel>(fieldName, OperationExpression.MinorEquals, Convert.ToDateTime(end));
+                        query = query.Where(predicateStart).Where(predicateEnd);
+                    }
+                    else if (ds.IsMatch(date))
+                    {
+                        var start = date.Substring(1, 10);
+                        var predicateStart = GetCriteriaWhere<TModel>(fieldName, OperationExpression.MayorEquals, Convert.ToDateTime(start));
+                        query = query.Where(predicateStart);
+                    }
+                    else if (de.IsMatch(date))
+                    {
+                        var end = date.Substring(2, 10);
+                        var predicateEnd = GetCriteriaWhere<TModel>(fieldName, OperationExpression.MinorEquals, Convert.ToDateTime(end));
+                        query = query.Where(predicateEnd);
+                    }
+                    else
+                    {
+                        var predicate = GetCriteriaWhere<TModel>(fieldName, OperationExpression.Equals, Convert.ToDateTime(date));
+                        query = query.Where(predicate);
+                    }
                 }
             }
             return query;
