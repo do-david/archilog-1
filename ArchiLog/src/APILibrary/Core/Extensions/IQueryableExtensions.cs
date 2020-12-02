@@ -50,6 +50,24 @@ namespace APILibrary.Core.Extensions
             }
             return expo;
         }
+        //SearchByName(IQueyable<TModel> query, string name)
+        public static IQueryable<TModel> SearchByName<TModel>(this IQueryable<TModel> query, string name) where TModel : ModelBase
+        {
+            var propsInfo = typeof(TModel).GetProperties();
+            var result = query;
+            foreach (var prop in propsInfo)
+            {
+                if(prop.PropertyType == typeof(string))
+                {
+                    var predicate = GetCriteriaWhere<TModel>(prop.Name, OperationExpression.Contains, name);
+                    if(query.Where(predicate).Count() > 0)
+                    {
+                        result = result.Where(predicate);
+                    }
+                }
+            }
+            return result;
+        }
         //FilterCustomized(IQuerible<TModel>, string type)
         public static IQueryable<TModel> FilterCustomized<TModel>(this IQueryable<TModel> query,string[] fieldNames,string type, string rating, string date) where TModel : ModelBase
         {
@@ -216,9 +234,7 @@ namespace APILibrary.Core.Extensions
                         var bodyLike = Expression.Call(expressionParameter, contains, Expression.Constant(fieldValue, propInfo.PropertyType));
                         return Expression.Lambda<Func<TModel, bool>>(bodyLike, parameter);
                     case OperationExpression.Contains:
-                        return Contains<TModel>(fieldValue, parameter, expressionParameter);
-
-
+                        return Contains<TModel>(fieldName,fieldValue, parameter, expressionParameter);
                     default:
                         throw new Exception("Not implement Operation");
                 }
@@ -248,16 +264,25 @@ namespace APILibrary.Core.Extensions
             (param, propertyName), typeof(object));   //important to use the Expression.Convert
             return Expression.Lambda<Func<TModel, object>>(conversion, param);
         }
-        private static Expression<Func<TModel, bool>> Contains<TModel>(object fieldValue, ParameterExpression parameterExpression, MemberExpression memberExpression) where TModel:ModelBase
+        //à modifier
+        private static Expression<Func<TModel, bool>> Contains<TModel>(string fieldName, object fieldValue, ParameterExpression parameterExpression, MemberExpression memberExpression) where TModel:ModelBase
         {
-            var list = fieldValue as List<long>;
-
-            if (list == null || list.Count == 0) return x => true;
-
-            MethodInfo containsInList = typeof(List<long>).GetMethod("Contains", new Type[] { typeof(long) });
-            var bodyContains = Expression.Call(Expression.Constant(fieldValue), containsInList, memberExpression);
-
-            return Expression.Lambda<Func<TModel, bool>>(bodyContains, parameterExpression);
+            var propertyExp = Expression.Property(parameterExpression, fieldName);
+            if (propertyExp.Type == typeof(string))
+            {
+                MethodInfo method = typeof(string).GetMethod("Contains", new[] { typeof(string) });
+                var someValue = Expression.Constant(fieldValue, typeof(string));
+                var containsMethodExp = Expression.Call(propertyExp, method, someValue);
+                return Expression.Lambda<Func<TModel, bool>>(containsMethodExp, parameterExpression);
+            }
+            else
+            {
+                var converter = TypeDescriptor.GetConverter(propertyExp.Type);
+                var result = converter.ConvertFrom(fieldValue);
+                var someValue = Expression.Constant(result);
+                var containsMethodExp = Expression.Equal(propertyExp, someValue);
+                return Expression.Lambda<Func<TModel, bool>>(containsMethodExp, parameterExpression);
+            }
         }
         public static IQueryable<dynamic> SelectDynamic<TModel>(this IQueryable<TModel> query, string[] fields) where TModel : ModelBase
         {

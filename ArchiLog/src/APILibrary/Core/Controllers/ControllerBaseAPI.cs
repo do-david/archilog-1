@@ -49,13 +49,26 @@ namespace APILibrary.Core.Controllers
                 var results = await query.SelectDynamic(tab).ToListAsync();
 
                 return results.Select((x) => IQueryableExtensions.SelectObject(x, tab)).ToList();
-
             }
             else
             {
                 return Ok( ToJsonList(await query.ToListAsync()));
             }
 
+        }
+        [Route("search")]
+        [ProducesResponseType((int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.NotFound)]
+        [HttpGet]
+        public virtual async Task<ActionResult<IEnumerable<dynamic>>> SearchAsync([FromQuery] string name)
+        {
+            var query = _context.Set<TModel>().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                query = query.SearchByName(name);
+            }
+            return Ok(ToJsonList(await query.ToListAsync()));
         }
 
         [ProducesResponseType((int)HttpStatusCode.OK)]
@@ -96,8 +109,6 @@ namespace APILibrary.Core.Controllers
                 }
             }
         }
-
-
         [ProducesResponseType((int)HttpStatusCode.Created)]
         [ProducesResponseType((int)HttpStatusCode.BadRequest)]
         [HttpPost]
