@@ -9,12 +9,19 @@ using System.Dynamic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Net;
+using System.Net.Http;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace APILibrary.Core.Controllers
 {
+/*    public interface IHttpActionResult
+    {
+        Task<HttpResponseMessage> ExecuteAsync(CancellationToken cancellationToken);
+    }*/
+
     [Route("api/[controller]")]
     [ApiController]
     public abstract class ControllerBaseAPI<TModel, TContext> : ControllerBase where TModel : ModelBase where TContext : DbContext
@@ -29,7 +36,7 @@ namespace APILibrary.Core.Controllers
         //?fields=email,phone
         [ProducesResponseType((int)HttpStatusCode.OK)]
         [HttpGet]
-        public virtual async Task<ActionResult<IEnumerable<dynamic>>> GetAllAsync([FromQuery] string fields, [FromQuery] string asc, [FromQuery] string desc,[FromQuery] string type, [FromQuery] string rating, [FromQuery] string date)
+        public virtual async Task<ActionResult<IEnumerable<dynamic>>> GetAllAsync([FromQuery] string fields, [FromQuery] string asc, [FromQuery] string desc,[FromQuery] string type, [FromQuery] string rating, [FromQuery] string date,[FromQuery] string range)
         {
             var query = _context.Set<TModel>().AsQueryable();
 
@@ -41,6 +48,14 @@ namespace APILibrary.Core.Controllers
             {
                 string[] fieldNames = {"Type", "Rating", "Date"};
                 query = query.FilterCustomized(fieldNames, type, rating, date);
+            }
+            if (!string.IsNullOrWhiteSpace(range))
+            {
+                var tab = range.Split('-');
+                var start = int.Parse(tab[0]);
+                var end = int.Parse(tab[1]);
+                //query = query.RangePagination(tab[0], tab[1]);
+                query = query.Where(x => x.ID >= start && x.ID <= end);
             }
             if (!string.IsNullOrWhiteSpace(fields))
             {

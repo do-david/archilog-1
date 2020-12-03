@@ -314,6 +314,11 @@ namespace APILibrary.Core.Extensions
             return query.Select(lambda);
         }
 
-        
+        //IQueryable<TModel> RangePagination (range,rel)
+/*        public static IQueryable<TModel> RangePagination<TModel>(this IQueryable<TModel> query, string start, string end) where TModel : ModelBase
+        {
+
+        }*/
+
     }
 }
